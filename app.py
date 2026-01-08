@@ -95,6 +95,21 @@ with st.sidebar:
         for file in st.session_state.indexed_files:
             st.caption(f"✅ {file}")
 
+    st.markdown("---")
+    with st.expander("🛠️ How it Works"):
+        st.write("""
+        1. **Extraction**: Text is pulled from PDF resumes.
+        2. **Chunking**: Resumes are split into small, searchable segments.
+        3. **Embeddings**: Google Gemini converts text into numerical vectors.
+        4. **Retrieval**: When you ask a question, the most relevant parts are found using FAISS.
+        5. **Generation**: Gemini generates a human-like answer based *only* on the retrieved context.
+        """)
+
+# Footer
+st.sidebar.markdown("---")
+st.sidebar.caption("🚀 Built with LangChain & Google Gemini")
+st.sidebar.caption("Created by [Antigravity AI](https://github.com/google-deepmind)")
+
 # Main Interface with Tabs
 tab1, tab2 = st.tabs(["💬 Candidate Chat", "🎯 JD Matching"])
 
