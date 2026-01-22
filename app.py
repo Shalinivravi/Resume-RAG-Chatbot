@@ -1,6 +1,7 @@
 import streamlit as st
 import os
-from rag_engine import rag_engine
+import pandas as pd
+from rag_engine import RAGEngine
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -65,6 +66,9 @@ if "processed" not in st.session_state:
 if "indexed_files" not in st.session_state:
     st.session_state.indexed_files = []
 
+if "rag_engine" not in st.session_state:
+    st.session_state.rag_engine = RAGEngine()
+
 # Sidebar for Uploads
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/3135/3135715.png", width=80)
@@ -82,12 +86,17 @@ with st.sidebar:
     if process_btn and uploaded_files:
         with st.spinner("Analyzing resumes..."):
             try:
-                rag_engine.process_resumes(uploaded_files)
+                st.session_state.rag_engine.process_resumes(uploaded_files)
                 st.session_state.processed = True
                 st.session_state.indexed_files = [f.name for f in uploaded_files]
+                st.toast("✅ Resumes indexed successfully!", icon="🚀")
                 st.success(f"Indexed {len(uploaded_files)} resumes!")
             except Exception as e:
                 st.error(f"Error: {str(e)}")
+
+    if st.button("🔄 Reset App", use_container_width=True):
+        st.session_state.clear()
+        st.rerun()
 
     if st.session_state.indexed_files:
         st.markdown("---")
@@ -111,7 +120,7 @@ st.sidebar.caption("🚀 Built with LangChain & Google Gemini")
 st.sidebar.caption("Created by [Antigravity AI](https://github.com/google-deepmind)")
 
 # Main Interface with Tabs
-tab1, tab2 = st.tabs(["💬 Candidate Chat", "🎯 JD Matching"])
+tab1, tab2, tab3 = st.tabs(["💬 Candidate Chat", "🎯 JD Matching", "📊 Resume Dashboard"])
 
 with tab1:
     if st.session_state.processed:
@@ -133,13 +142,20 @@ with tab1:
 
             with st.chat_message("assistant"):
                 with st.spinner("Thinking..."):
-                    response = rag_engine.get_response(prompt, chat_history=history)
+                    response = st.session_state.rag_engine.get_response(prompt, chat_history=history)
                     st.markdown(response)
             
             # Add assistant response to chat history
             st.session_state.messages.append({"role": "assistant", "content": response})
     else:
-        st.info("👋 Please upload and index resumes in the sidebar to start chatting.")
+        st.info("👋 **Welcome!** Please upload and index resumes in the sidebar to start chatting.")
+        st.markdown("""
+        ### Quick Start:
+        1. **Upload**: Drag and drop PDF resumes into the sidebar.
+        2. **Index**: Click the 'Index Files' button.
+        3. **Chat**: Ask questions here about the candidates found.
+        4. **Rank**: Switch to the 'JD Matching' tab to rank candidates against a job description.
+        """)
 
 with tab2:
     st.header("🎯 Match Candidates to Job Description")
@@ -155,11 +171,42 @@ with tab2:
         else:
             with st.spinner("Analyzing and ranking matches..."):
                 try:
-                    ranking_results = rag_engine.rank_candidates(jd_input)
+                    markdown_res, structured_data = st.session_state.rag_engine.rank_candidates(jd_input)
                     st.markdown("### 🏆 Ranking Results")
-                    st.markdown(ranking_results)
+                    with st.container(border=True):
+                        st.markdown(markdown_res)
+                    
+                    if structured_data:
+                        df = pd.DataFrame(structured_data)
+                        st.markdown("### 📈 Summary Table")
+                        st.dataframe(df, use_container_width=True)
+                        
+                        csv = df.to_csv(index=False).encode('utf-8')
+                        st.download_button(
+                            label="📥 Download Ranking as CSV",
+                            data=csv,
+                            file_name='candidate_ranking.csv',
+                            mime='text/csv',
+                        )
+                    st.toast("Ranking complete!", icon="🎯")
                 except Exception as e:
                     st.error(f"Error during ranking: {str(e)}")
+
+with tab3:
+    st.header("📊 Multi-Resume Dashboard")
+    if st.session_state.processed:
+        if st.button("Generate Talent Overview"):
+            with st.spinner("Crunching data..."):
+                summary = st.session_state.rag_engine.summarize_resumes()
+                st.info(summary)
+        
+        st.markdown("---")
+        st.markdown("### 📋 Uploaded Files")
+        cols = st.columns(3)
+        for i, file in enumerate(st.session_state.indexed_files):
+            cols[i % 3].success(f"📄 {file}")
+    else:
+        st.info("Upload resumes to see a dashboard analysis.")
 
 # Footer
 st.sidebar.markdown("---")

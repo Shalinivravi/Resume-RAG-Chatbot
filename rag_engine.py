@@ -1,5 +1,7 @@
 import os
 import tempfile
+import json
+import re
 from typing import List
 from dotenv import load_dotenv
 from langchain_community.document_loaders import PyPDFLoader
@@ -106,37 +108,66 @@ class RAGEngine:
     def rank_candidates(self, job_description: str):
         """
         Rank all indexed candidates against a job description.
+        Returns both a markdown response and a list of candidate scores for export.
         """
         if not self.vector_store:
-            return "Please upload some resumes first."
+            return "Please upload some resumes first.", []
 
-        # Retrieve more documents for ranking
         retriever = self.vector_store.as_retriever(search_kwargs={"k": 20})
         
         system_prompt = (
             "You are an expert HR Analyst. You will receive a Job Description and pieces of retrieved context from several resumes. "
-            "Your task is to rank the candidates based on how well they match the Job Description. "
-            "For each candidate, provide a brief reasoning (2 lines) and a 'Match Score' out of 100. "
-            "Format the output as a ranked list.\n\n"
+            "Your task is to rank the candidates based on how well they match the Job Description.\n\n"
+            "Analyze the resumes and provide a ranked list of candidates.\n"
+            "For each candidate, provide:\n"
+            "- Name\n"
+            "- Match Score (0-100)\n"
+            "- Reasoning (bullet points)\n\n"
+            "After the list, provide a JSON-formatted list of candidates with keys: 'name', 'score', 'reasoning_summary'. "
+            "Example JSON: [{\"name\": \"John Doe\", \"score\": 85, \"reasoning_summary\": \"Strong Python skills\"}]\n\n"
             "Job Description: {jd}\n\n"
             "Retrieved Resume Context:\n{context}"
         )
 
-        prompt = ChatPromptTemplate.from_messages(
-            [
-                ("system", system_prompt),
-                ("human", "Rank the candidates based on the provided JD and resumes."),
-            ]
-        )
-
-        # Use a simple chain for this
+        prompt = ChatPromptTemplate.from_messages([("system", system_prompt)])
         chain = create_stuff_documents_chain(self.llm, prompt)
         
-        # We need to manually retrieve the docs since we aren't using create_retrieval_chain here
         docs = retriever.invoke(job_description)
         response = chain.invoke({"context": docs, "jd": job_description})
         
-        return response
+        # Simple extraction of markdown vs JSON part
+        markdown_part = response
+        structured_data = []
+        
+        json_match = re.search(r'\[\s*{.*}\s*\]', response, re.DOTALL)
+        if json_match:
+            try:
+                structured_data = json.loads(json_match.group())
+                markdown_part = response[:json_match.start()].strip()
+            except:
+                pass
+                
+        return markdown_part, structured_data
 
-# Singleton instance for the app
-rag_engine = RAGEngine()
+    def summarize_resumes(self):
+        """
+        Generate a quick summary of all indexed candidates.
+        """
+        if not self.vector_store:
+            return "No resumes indexed."
+
+        # Retrieve chunks with broad search to get a sense of everything
+        retriever = self.vector_store.as_retriever(search_kwargs={"k": 15})
+        docs = retriever.invoke("Summarize all candidates and their key skills.")
+        
+        system_prompt = (
+            "Provide a high-level summary of all candidates found in the provided resume snippets. "
+            "Group them by their primary expertise. Be concise."
+            "\n\n{context}"
+        )
+        prompt = ChatPromptTemplate.from_messages([("system", system_prompt)])
+        chain = create_stuff_documents_chain(self.llm, prompt)
+        
+        return chain.invoke({"context": docs})
+
+# Note: No singleton instance here. Instantiate in app.py within session_state.

@@ -6,3 +6,4 @@ pypdf
 faiss-cpu
 python-dotenv
 google-generativeai
+pandas
