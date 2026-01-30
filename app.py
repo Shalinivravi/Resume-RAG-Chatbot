@@ -11,44 +11,112 @@ st.set_page_config(page_title="Resume Screening Chatbot", page_icon="📄", layo
 # Custom CSS for a premium look
 st.markdown("""
 <style>
+    /* Import Fonts */
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Inter:wght@300;400;500;600&display=swap');
+
+    /* Global Reset & Base Styles */
     .stApp {
-        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-    }
-    .main {
-        padding: 2rem;
-    }
-    .stHeader {
-        color: #1e3a8a;
+        background: radial-gradient(circle at 10% 20%, rgba(139, 92, 246, 0.15) 0%, transparent 40%),
+                    radial-gradient(circle at 90% 80%, rgba(59, 130, 246, 0.15) 0%, transparent 40%),
+                    #0f172a;
         font-family: 'Inter', sans-serif;
+        color: #f8fafc;
     }
-    .stButton>button {
-        border-radius: 8px;
-        background-color: #2563eb;
-        color: white;
-        font-weight: 600;
-        transition: all 0.3s ease;
+
+    h1, h2, h3, h4, h5, h6 {
+        font-family: 'Outfit', sans-serif;
+        font-weight: 700;
+        letter-spacing: -0.02em;
     }
-    .stButton>button:hover {
-        background-color: #1d4ed8;
+    
+    /* Headings Gradient */
+    h1 span, h2 span, .gradient-text {
+        background: linear-gradient(135deg, #a78bfa 0%, #3b82f6 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    /* Glassmorphism Cards */
+    .glass-card, .stChatMessage {
+        background: rgba(30, 41, 59, 0.4);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 16px;
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .stChatMessage:hover {
         transform: translateY(-2px);
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.3);
     }
-    .sidebar .sidebar-content {
-        background-color: white;
-        border-right: 1px solid #e5e7eb;
+
+    /* Buttons */
+    .stButton>button {
+        background: linear-gradient(135deg, #6366f1 0%, #3b82f6 100%);
+        border: none;
+        border-radius: 12px;
+        color: white;
+        font-family: 'Outfit', sans-serif;
+        font-weight: 600;
+        padding: 0.6rem 1.2rem;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
     }
-    .status-box {
-        padding: 1rem;
-        border-radius: 10px;
-        background-color: white;
-        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-        margin-bottom: 1rem;
+
+    .stButton>button:hover {
+        transform: translateY(-2px) scale(1.02);
+        box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.4);
+    }
+    
+    /* Inputs */
+    .stTextInput>div>div, .stTextArea>div>div {
+        background-color: rgba(30, 41, 59, 0.6) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        border-radius: 12px !important;
+        color: #f8fafc !important;
+    }
+    
+    .stTextInput>div>div:focus-within, .stTextArea>div>div:focus-within {
+        border-color: #8b5cf6 !important;
+        box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
+    }
+
+    /* Sidebar */
+    .stSidebar {
+        background-color: rgba(15, 23, 42, 0.95);
+        border-right: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+        background: rgba(15, 23, 42, 0);
+    }
+    ::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.2);
+    }
+    
+    /* Toast/Alerts */
+    .stToast {
+        background-color: rgba(30, 41, 59, 0.9) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        color: #f8fafc !important;
+        border-radius: 12px !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📄 AI Resume Screening Chatbot")
-st.markdown("#### Intelligent candidate matching powered by RAG")
+st.markdown('<h1 class="gradient-text">AI Resume Screening Chatbot</h1>', unsafe_allow_html=True)
+st.markdown("<p style='font-size: 1.2rem; opacity: 0.8;'>Intelligent candidate matching powered by RAG</p>", unsafe_allow_html=True)
 
 # Check for API Key
 if not os.getenv("GOOGLE_API_KEY"):
@@ -106,13 +174,17 @@ with st.sidebar:
 
     st.markdown("---")
     with st.expander("🛠️ How it Works"):
-        st.write("""
-        1. **Extraction**: Text is pulled from PDF resumes.
-        2. **Chunking**: Resumes are split into small, searchable segments.
-        3. **Embeddings**: Google Gemini converts text into numerical vectors.
-        4. **Retrieval**: When you ask a question, the most relevant parts are found using FAISS.
-        5. **Generation**: Gemini generates a human-like answer based *only* on the retrieved context.
-        """)
+        st.markdown("""
+        <div class="glass-card" style="padding: 1.5rem;">
+            <ol style="list-style-position: inside; margin: 0; padding: 0;">
+                <li style="margin-bottom: 0.8rem;"><strong>Extraction</strong>: Text is pulled from PDF resumes.</li>
+                <li style="margin-bottom: 0.8rem;"><strong>Chunking</strong>: Resumes are split into small, searchable segments.</li>
+                <li style="margin-bottom: 0.8rem;"><strong>Embeddings</strong>: Google Gemini converts text into numerical vectors.</li>
+                <li style="margin-bottom: 0.8rem;"><strong>Retrieval</strong>: Relevant context is found using FAISS.</li>
+                <li><strong>Generation</strong>: Gemini generates a human-like answer.</li>
+            </ol>
+        </div>
+        """, unsafe_allow_html=True)
 
 # Footer
 st.sidebar.markdown("---")
